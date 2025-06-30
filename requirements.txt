@@ -1,0 +1,9 @@
+# Core CrewAI and Tools (Latest versions compatible with Python 3.13)
+crewai>=0.40.0
+crewai-tools>=0.3.0
+
+# GUI Framework
+streamlit
+
+# Supporting Libraries
+langchain-openai
