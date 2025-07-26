@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R. SWAN - Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        /* Header and Navigation */
+        .header {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 70px;
+        }
+
+        .brand {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #007bff;
+        }
+
+        .search-filter-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 300px;
+            padding: 10px 40px 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #007bff;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .clear-search {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+        }
+
+        .filter-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .filter-button:hover {
+            background: #0056b3;
+        }
+
+        .filter-button.active {
+            background: #0056b3;
+        }
+
+        /* Filter Dialog */
+        .filter-dialog {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 20px;
+            min-width: 250px;
+            display: none;
+            z-index: 1001;
+        }
+
+        .filter-dialog.show {
+            display: block;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .filter-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .filter-select:focus {
+            border-color: #007bff;
+        }
+
+        .clear-filters {
+            background: white;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        .clear-filters:hover {
+            background: #f8f9fa;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .project-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .project-content {
+            padding: 20px;
+        }
+
+        .project-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .project-year {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .project-description {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .project-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .tag-label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .tag {
+            background: #f8f9fa;
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: column;
+                height: auto;
+                padding: 15px 20px;
+                gap: 15px;
+            }
+
+            .search-filter-container {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .search-input {
+                width: 250px;
+            }
+
+            .filter-dialog {
+                right: 20px;
+                left: 20px;
+                min-width: auto;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header and Navigation -->
+    <header class="header">
+        <div class="nav-container">
+            <div class="brand">R. SWAN</div>
+            
+            <nav class="nav-links">
+                <a href="#art">ART</a>
+                <a href="#code">CODE</a>
+                <a href="#writing">WRITING</a>
+            </nav>
+            
+            <div class="search-filter-container">
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search by keyword, tech, or title...">
+                    <span class="search-icon">🔍</span>
+                    <button class="clear-search">✕</button>
+                </div>
+                
+                <button class="filter-button" id="filterButton">Filter</button>
+                
+                <!-- Filter Dialog - Now positioned under search and filter button -->
+                <div class="filter-dialog" id="filterDialog">
+                    <div class="filter-group">
+                        <label for="genreFilter">GENRE</label>
+                        <select class="filter-select" id="genreFilter">
+                            <option value="">All Genres</option>
+                            <option value="character-design">Character Design</option>
+                            <option value="science-fantasy">Science Fantasy</option>
+                            <option value="fantasy">Fantasy</option>
+                            <option value="comic-book">Comic Book</option>
+                            <option value="science-fiction">Science Fiction</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="technologyFilter">TECHNOLOGY</label>
+                        <select class="filter-select" id="technologyFilter">
+                            <option value="">All Technologies</option>
+                            <option value="digital-illustration">Digital Illustration</option>
+                            <option value="character-design">Character Design</option>
+                            <option value="concept-art">Concept Art</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="styleFilter">STYLE</label>
+                        <select class="filter-select" id="styleFilter">
+                            <option value="">All Styles</option>
+                            <option value="modern">Modern</option>
+                            <option value="classic">Classic</option>
+                            <option value="experimental">Experimental</option>
+                        </select>
+                    </div>
+                    
+                    <button class="clear-filters" id="clearFilters">Clear All</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="projects-grid" id="projectsGrid">
+            <!-- Project cards will be populated here -->
+        </div>
+    </main>
+
+    <script>
+        // Sample project data
+        const projects = [
+            {
+                title: "Character Design",
+                year: "2024",
+                description: "A comprehensive character design project showcasing various artistic styles and techniques.",
+                image: "Character Design",
+                tags: {
+                    role: ["Character Designer", "Process Developer", "Art Educator"],
+                    genre: ["Character Design", "Process Documentation", "Art Education"],
+                    technology: ["Digital Illustration", "Character Design", "Concept Art"]
+                }
+            },
+            {
+                title: "Echoes of Lumina (Novella)",
+                year: "2024",
+                description: "A science fantasy novella exploring themes of consciousness and reality.",
+                image: "Echoes of Lumina",
+                tags: {
+                    role: ["Author & World Designer", "Spiritual Researcher"],
+                    genre: ["Science Fantasy", "Literary Fiction", "Speculative"],
+                    technology: []
+                }
+            },
+            {
+                title: "Elyra",
+                year: "2024",
+                description: "A fantasy world-building project with rich lore and visual development.",
+                image: "Elyra",
+                tags: {
+                    role: ["Spiritual Researcher"],
+                    genre: ["Fantasy", "World Building"],
+                    technology: []
+                }
+            },
+            {
+                title: "Graphic Novel",
+                year: "2024",
+                description: "A science fiction graphic novel with innovative storytelling techniques.",
+                image: "Graphic Novel",
+                tags: {
+                    role: ["Artist", "Writer"],
+                    genre: ["Comic Book", "Science Fiction"],
+                    technology: ["Digital Illustration", "Character Design"]
+                }
+            }
+        ];
+
+        // DOM elements
+        const filterButton = document.getElementById('filterButton');
+        const filterDialog = document.getElementById('filterDialog');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+        const searchInput = document.querySelector('.search-input');
+        const clearSearchBtn = document.querySelector('.clear-search');
+        const projectsGrid = document.getElementById('projectsGrid');
+
+        // Filter functionality
+        let isFilterOpen = false;
+
+        function toggleFilter() {
+            isFilterOpen = !isFilterOpen;
+            filterDialog.classList.toggle('show', isFilterOpen);
+            filterButton.classList.toggle('active', isFilterOpen);
+        }
+
+        function closeFilter() {
+            isFilterOpen = false;
+            filterDialog.classList.remove('show');
+            filterButton.classList.remove('active');
+        }
+
+        // Event listeners
+        filterButton.addEventListener('click', toggleFilter);
+
+        // Close filter when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!filterButton.contains(e.target) && !filterDialog.contains(e.target)) {
+                closeFilter();
+            }
+        });
+
+        // Close filter with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFilter();
+            }
+        });
+
+        // Clear filters
+        clearFiltersBtn.addEventListener('click', () => {
+            document.getElementById('genreFilter').value = '';
+            document.getElementById('technologyFilter').value = '';
+            document.getElementById('styleFilter').value = '';
+            filterProjects();
+        });
+
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            clearSearchBtn.style.display = query ? 'block' : 'none';
+            filterProjects();
+        });
+
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            clearSearchBtn.style.display = 'none';
+            filterProjects();
+        });
+
+        // Filter change handlers
+        document.getElementById('genreFilter').addEventListener('change', filterProjects);
+        document.getElementById('technologyFilter').addEventListener('change', filterProjects);
+        document.getElementById('styleFilter').addEventListener('change', filterProjects);
+
+        // Filter and display projects
+        function filterProjects() {
+            const searchQuery = searchInput.value.toLowerCase();
+            const genreFilter = document.getElementById('genreFilter').value;
+            const technologyFilter = document.getElementById('technologyFilter').value;
+            const styleFilter = document.getElementById('styleFilter').value;
+
+            const filteredProjects = projects.filter(project => {
+                // Search filter
+                const matchesSearch = !searchQuery || 
+                    project.title.toLowerCase().includes(searchQuery) ||
+                    project.description.toLowerCase().includes(searchQuery) ||
+                    Object.values(project.tags).flat().some(tag => 
+                        tag.toLowerCase().includes(searchQuery)
+                    );
+
+                // Genre filter
+                const matchesGenre = !genreFilter || 
+                    project.tags.genre.some(genre => 
+                        genre.toLowerCase().replace(/\s+/g, '-') === genreFilter
+                    );
+
+                // Technology filter
+                const matchesTechnology = !technologyFilter || 
+                    project.tags.technology.some(tech => 
+                        tech.toLowerCase().replace(/\s+/g, '-') === technologyFilter
+                    );
+
+                // Style filter (simplified for demo)
+                const matchesStyle = !styleFilter;
+
+                return matchesSearch && matchesGenre && matchesTechnology && matchesStyle;
+            });
+
+            displayProjects(filteredProjects);
+        }
+
+        // Display projects
+        function displayProjects(projectsToShow) {
+            projectsGrid.innerHTML = projectsToShow.map(project => `
+                <div class="project-card">
+                    <div class="project-image">${project.image}</div>
+                    <div class="project-content">
+                        <div class="project-title">${project.title}</div>
+                        <div class="project-year">${project.year}</div>
+                        <div class="project-description">${project.description}</div>
+                        <div class="project-tags">
+                            ${project.tags.role.length > 0 ? `
+                                <div class="tag-group">
+                                    <div class="tag-label">ROLE</div>
+                                    ${project.tags.role.map(role => `<span class="tag">${role}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            ${project.tags.genre.length > 0 ? `
+                                <div class="tag-group">
+                                    <div class="tag-label">GENRE</div>
+                                    ${project.tags.genre.map(genre => `<span class="tag">${genre}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            ${project.tags.technology.length > 0 ? `
+                                <div class="tag-group">
+                                    <div class="tag-label">TECHNOLOGY</div>
+                                    ${project.tags.technology.map(tech => `<span class="tag">${tech}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Initialize the page
+        displayProjects(projects);
+    </script>
+</body>
+</html> 
