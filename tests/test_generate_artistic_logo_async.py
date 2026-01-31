@@ -6,7 +6,8 @@ from fastapi.testclient import TestClient
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from backend.api import app, GENERATION_TASKS
+from backend.api import app
+from backend.job_manager import job_manager
 
 CLIENT = TestClient(app)
 
@@ -28,7 +29,36 @@ def test_background_job_lifecycle(monkeypatch):
     location = data['location']
 
     # Poll for completion (BackgroundTasks will run after response in TestClient)
-    for _ in range(10):
+    future = None
+    for _ in range(50):
+        # also check future from job_manager if available to detect failures
+        try:
+            from backend.job_manager import job_manager
+            t = job_manager._generation_tasks.get(data['task_id'])
+            if t:
+                print('DEBUG: found task', t.task_id, 'status', t.status, 'error=', getattr(t, 'error', None))
+            if t and getattr(t, '_future', None) is not None:
+                future = t._future
+                print('DEBUG: future present, done=', future.done(), 'cancelled=', future.cancelled())
+                if future.done():
+                    # if future raised an exception, show it
+                    exc = None
+                    try:
+                        future.result(timeout=0.1)
+                    except Exception as e:
+                        exc = e
+                    print('DEBUG: future.exception=', future.exception())
+                    r2 = CLIENT.get(location)
+                    assert r2.status_code == 200
+                    job = r2.json()
+                    if exc:
+                        pytest.fail(f"Background job future failed: {exc}")
+                    if job['status'] == 'completed':
+                        assert job['result']['brand'] == 'AsyncBrand'
+                        assert len(job['result']['variants']) == 1
+                        break
+        except Exception:
+            pass
         r2 = CLIENT.get(location)
         assert r2.status_code == 200
         job = r2.json()
