@@ -176,6 +176,21 @@ function LogoSection({ results }: { results: WorkflowResult }) {
                 ))}
               </div>
             )}
+
+            {/* Artistic variants gallery */}
+            {logo.variants && logo.variants.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {logo.variants.map((v, idx) => (
+                  <img
+                    key={idx}
+                    src={`${API_BASE}/${v.file_path}`}
+                    alt={`${logo.name}-variant-${idx+1}`}
+                    className="h-20 w-full object-cover rounded cursor-pointer"
+                    onClick={() => window.open(`${API_BASE}/${v.file_path}`, '_blank')}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

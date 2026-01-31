@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" width="150" height="150">
+    <style>
+        .bg { fill: #FDB813; }
+        .logo-text { fill: #1ABC9C; font-family: 'Arial Black', Gadget, sans-serif; font-size: 24px; }
+        .underline { stroke: #1ABC9C; stroke-width: 3; }
+    </style>
+    <rect class="bg" x="0" y="0" width="150" height="150"/>
+    <text class="logo-text" x="20" y="80">TestBrand</text>
+    <path class="underline" d="M 20 94 L 130 94"/>
+</svg>

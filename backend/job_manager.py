@@ -310,6 +310,8 @@ class JobManager:
         brand_identity = None
         if job.results.get('brand_identity'):
             bi = job.results['brand_identity']
+            base_name = job.brand_brief.brand_name.replace(' ', '').lower()
+            style_val = job.brand_brief.style_preference.value
             brand_identity = BrandIdentityResult(
                 logo_concepts=[
                     LogoConceptResult(
@@ -319,6 +321,19 @@ class JobManager:
                         rationale="Modern design approach aligned with brand values",
                         style=job.brand_brief.style_preference.value,
                         file_path=f"assets/logos/{job.brand_brief.brand_name.replace(' ', '').lower()}_concept_{i+1}.png",
+                        variants=[
+                            {
+                                "file_path": p,
+                                "model": os.getenv('OLLAMA_IMAGE_MODEL', 'sdxl'),
+                                "prompt": "",
+                                "style": style_val,
+                                "resolution": "1024x1024"
+                            }
+                            for v in range(3)
+                            for ext in ('png', 'svg')
+                            for p in [f"assets/logos/{base_name}_{style_val}_variant_{v+1}.{ext}"]
+                            if os.path.exists(p)
+                        ],
                         use_cases=["Website", "Business cards", "Social media"]
                     )
                     for i in range(bi.get('logo_concepts', {}).get('concepts_count', 3))
@@ -347,7 +362,12 @@ class JobManager:
                     platforms=mk.get('social_media_content', {}).get('platforms_covered', []),
                     posts_per_platform=mk.get('social_media_content', {}).get('posts_per_platform', 3),
                     content_themes=["Brand awareness", "Product features", "Customer stories"],
-                    sample_posts=[]
+                    sample_posts=[
+                        {
+                            "caption": f"Sample post for {job.brand_brief.brand_name}",
+                            "image_path": f"assets/social/{job.brand_brief.brand_name.replace(' ', '').lower()}_{(mk.get('social_media_content', {}).get('platforms_covered', ['instagram'])[0]).lower()}.png"
+                        }
+                    ]
                 ),
                 email_campaigns=EmailCampaignResult(
                     campaign_types=mk.get('email_campaigns', {}).get('campaign_types', []),
@@ -383,6 +403,137 @@ class JobManager:
         for job in jobs[:to_remove]:
             if job.status in (JobStatus.COMPLETED, JobStatus.FAILED):
                 del self._jobs[job.job_id]
+
+
+# Generation task support
+from concurrent.futures import ThreadPoolExecutor
+
+class GenerationTask:
+    def __init__(self, task_id: str, req: dict):
+        self.task_id = task_id
+        self.req = req
+        self.status = 'pending'
+        self.result = None
+        self.error = None
+        self._future = None
+        self._cancelled = False
+
+
+class JobManager:
+    def __init__(self):
+        self._jobs: Dict[str, JobState] = {}
+        self._max_jobs = 100  # Limit stored jobs
+        # Generation tasks state
+        self._generation_tasks: Dict[str, GenerationTask] = {}
+        self._gen_executor = ThreadPoolExecutor(max_workers=4)
+
+    # --- generation task API ---
+    def create_generation_task(self, task_id: str, req: dict):
+        t = GenerationTask(task_id, req)
+        self._generation_tasks[task_id] = t
+        t._future = self._gen_executor.submit(self._run_generation_task, task_id)
+        return t
+
+    def _run_generation_task(self, task_id: str):
+        t = self._generation_tasks.get(task_id)
+        if not t:
+            return
+        t.status = 'running'
+        # persist via persistence module when available
+        try:
+            from backend import persistence
+            persistence.save_task(task_id, {"task_id": task_id, "status": t.status, "req": t.req})
+        except Exception:
+            pass
+
+        try:
+            # Run the actual generation (blocking)
+            from tools import generate_artistic_logo
+            resp = generate_artistic_logo.func(
+                t.req['brand_name'],
+                prompt=t.req.get('prompt', ''),
+                style=t.req.get('style', 'stylized'),
+                variants=t.req.get('variants', 3),
+                resolution=t.req.get('resolution', '1024x1024'),
+                model=t.req.get('model')
+            )
+            if t._cancelled:
+                t.status = 'failed'
+                t.error = 'cancelled'
+            else:
+                t.status = 'completed'
+                t.result = json.loads(resp) if isinstance(resp, str) else resp
+
+        except Exception as e:
+            t.status = 'failed'
+            t.error = str(e)
+
+        # persist final state
+        try:
+            from backend import persistence
+            persistence.save_task(task_id, {"task_id": task_id, "status": t.status, "req": t.req, "result": t.result, "error": t.error})
+        except Exception:
+            pass
+
+    def get_generation_task(self, task_id: str) -> Optional[Dict]:
+        try:
+            from backend import persistence
+            persisted = persistence.get_task(task_id)
+            if persisted:
+                return persisted
+        except Exception:
+            pass
+        t = self._generation_tasks.get(task_id)
+        if not t:
+            return None
+        return {"task_id": t.task_id, "status": t.status, "req": t.req, "result": t.result, "error": t.error}
+
+    def list_generation_tasks(self) -> List[Dict]:
+        try:
+            from backend import persistence
+            return persistence.list_tasks()
+        except Exception:
+            return [
+                {"task_id": t.task_id, "status": t.status, "req": t.req, "result": t.result, "error": t.error}
+                for t in self._generation_tasks.values()
+            ]
+
+    def cancel_generation_task(self, task_id: str) -> bool:
+        t = self._generation_tasks.get(task_id)
+        if not t:
+            try:
+                from backend import persistence
+                persisted = persistence.get_task(task_id)
+                if persisted:
+                    persisted['status'] = 'failed'
+                    persisted['error'] = 'cancelled by user'
+                    persistence.save_task(task_id, persisted)
+                    return True
+            except Exception:
+                return False
+            return False
+        # mark cancelled and try to cancel future
+        t._cancelled = True
+        if t._future:
+            cancelled = t._future.cancel()
+            if cancelled:
+                t.status = 'failed'
+                t.error = 'cancelled by user'
+                try:
+                    from backend import persistence
+                    persistence.save_task(task_id, {"task_id": task_id, "status": t.status, "req": t.req, "error": t.error})
+                except Exception:
+                    pass
+                return True
+        # If future could not be cancelled, we still mark as cancelled; worker will check flag
+        t.status = 'failed'
+        t.error = 'cancelled by user'
+        try:
+            from backend import persistence
+            persistence.save_task(task_id, {"task_id": task_id, "status": t.status, "req": t.req, "error": t.error})
+        except Exception:
+            pass
+        return True
 
 
 # Global job manager instance

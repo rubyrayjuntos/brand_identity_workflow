@@ -5,8 +5,10 @@ Provides REST endpoints and WebSocket support for real-time updates.
 
 import asyncio
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from contextlib import asynccontextmanager
+import os
+import json
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +16,9 @@ from fastapi.staticfiles import StaticFiles
 
 from .schemas import (
     BrandBriefRequest, JobResponse, JobListResponse,
-    WorkflowProgress, WSMessageType, WorkflowResult, JobStatus
+    WorkflowProgress, WSMessageType, WorkflowResult, JobStatus,
+    ArtisticLogoRequest, ArtisticLogoResponse,
+    GenerationJobResponse, GenerationJobResult, GenerationStatus
 )
 from .job_manager import job_manager
 
@@ -162,6 +166,87 @@ async def get_job_results(job_id: str):
         raise HTTPException(status_code=500, detail="Failed to format results")
 
     return result
+
+
+# Synchronous on-demand generation (unchanged)
+@app.post("/api/generate/artistic-logo", response_model=ArtisticLogoResponse)
+async def generate_artistic_logo_endpoint(req: ArtisticLogoRequest):
+    """Generate artistic logo variants on demand using local Ollama or placeholders (synchronous).
+
+    Warning: this will block the request until generation completes — use the background job endpoint for long-running requests.
+    """
+    try:
+        from tools import generate_artistic_logo
+        model = req.model or os.getenv('OLLAMA_IMAGE_MODEL', 'qwen2.5:latest')
+        loop = asyncio.get_running_loop()
+        resp = await loop.run_in_executor(None, lambda: generate_artistic_logo.func(
+            req.brand_name, prompt=req.prompt, style=req.style,
+            variants=req.variants, resolution=req.resolution, model=model
+        ))
+        data = json.loads(resp) if isinstance(resp, str) else resp
+        return ArtisticLogoResponse(brand=data.get('brand', req.brand_name), variants=data.get('variants', []))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/generate/artistic-logo/jobs", response_model=GenerationJobResponse, status_code=202)
+async def create_artistic_logo_job(req: ArtisticLogoRequest, background_tasks: BackgroundTasks):
+    """Create a background generation job (returns 202 and a location to poll)."""
+    from uuid import uuid4
+    task_id = str(uuid4())
+
+    # register and start task via job_manager
+    job_manager.create_generation_task(task_id, {
+        "brand_name": req.brand_name,
+        "prompt": req.prompt,
+        "style": req.style,
+        "variants": req.variants,
+        "resolution": req.resolution,
+        "model": req.model or os.getenv('OLLAMA_IMAGE_MODEL', 'qwen2.5:latest')
+    })
+
+    location = f"/api/generate/artistic-logo/jobs/{task_id}"
+    return GenerationJobResponse(task_id=task_id, status=GenerationStatus.PENDING, location=location)
+
+
+@app.get("/api/generate/artistic-logo/jobs/{task_id}", response_model=GenerationJobResult)
+async def get_artistic_logo_job(task_id: str):
+    """Get the status and result of a background generation job."""
+    task = job_manager.get_generation_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    status = GenerationStatus(task.get("status", "pending"))
+    result = None
+    if task.get("result"):
+        result = ArtisticLogoResponse(brand=task["result"].get("brand"), variants=task["result"].get("variants", []))
+
+    return GenerationJobResult(task_id=task_id, status=status, result=result, error=task.get("error"))
+
+
+@app.post("/api/generate/artistic-logo/jobs/{task_id}/cancel", response_model=GenerationJobResult)
+async def cancel_artistic_logo_job(task_id: str):
+    """Cancel a background generation job (best-effort)."""
+    ok = job_manager.cancel_generation_task(task_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Task not found or could not be cancelled")
+    task = job_manager.get_generation_task(task_id)
+    status = GenerationStatus(task.get("status", "failed"))
+    return GenerationJobResult(task_id=task_id, status=status, result=None, error=task.get("error"))
+
+
+@app.get("/api/generate/artistic-logo/jobs", response_model=List[GenerationJobResult])
+async def list_artistic_logo_jobs():
+    """List generation jobs."""
+    tasks = job_manager.list_generation_tasks()
+    out = []
+    for t in tasks:
+        status = GenerationStatus(t.get("status", "pending"))
+        result = None
+        if t.get("result"):
+            result = ArtisticLogoResponse(brand=t["result"].get("brand"), variants=t["result"].get("variants", []))
+        out.append(GenerationJobResult(task_id=t.get("task_id"), status=status, result=result, error=t.get("error")))
+    return out
 
 
 # ===================================================================

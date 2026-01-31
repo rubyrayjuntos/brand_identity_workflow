@@ -79,12 +79,22 @@ export interface WorkflowProgress {
 // Result Types
 // ===================================================================
 
+export interface LogoVariant {
+  file_path?: string;
+  model?: string;
+  prompt?: string;
+  style?: string;
+  resolution?: string;
+}
+
 export interface LogoConcept {
   id: string;
   name: string;
   description: string;
   rationale: string;
   style: string;
+  file_path?: string;
+  variants?: LogoVariant[];
   use_cases: string[];
 }
 
@@ -116,11 +126,16 @@ export interface BrandIdentityResult {
   style_guide: StyleGuide | null;
 }
 
+export interface SocialMediaPostSample {
+  caption?: string;
+  image_path?: string;
+}
+
 export interface SocialMediaContent {
   platforms: string[];
   posts_per_platform: number;
   content_themes: string[];
-  sample_posts: Record<string, unknown>[];
+  sample_posts: SocialMediaPostSample[];
 }
 
 export interface EmailCampaigns {

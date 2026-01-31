@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 75" width="150" height="75">
+    <style>
+        .base { fill: #F4B084; }
+        .highlight { fill: #FF6F69; }
+    </style>
+    <rect x="0" y="0" width="150" height="75" style="stroke:#EFEFEF;stroke-width:2;fill:none"/>
+    <path d="M 20 30 C 40 50, 60 50, 80 30 S 100 10, 120 30" class="base" />
+    <path d="M 30 40 C 50 60, 70 60, 90 40 S 110 20, 130 40" class="highlight" transform="rotate(15)" />
+    <text x="40" y="50" font-family="Arial黑体-标准" font-size="20" text-anchor="middle" style="fill:#696969">TestBrand</text>
+</svg>

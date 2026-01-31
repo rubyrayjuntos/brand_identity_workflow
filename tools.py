@@ -10,6 +10,9 @@ import os
 from dotenv import load_dotenv
 from crewai.tools import tool
 from PIL import Image, ImageDraw, ImageFont
+import requests
+import base64
+import subprocess
 
 load_dotenv()
 
@@ -96,7 +99,12 @@ def generate_logo_concepts(brand_name: str, industry: str, target_audience: str,
                 except Exception:
                     font = ImageFont.load_default()
 
-                text_w, text_h = draw.textsize(text, font=font)
+                try:
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_w = bbox[2] - bbox[0]
+                    text_h = bbox[3] - bbox[1]
+                except Exception:
+                    text_w, text_h = draw.textsize(text, font=font)
                 draw.text(((img_size[0]-text_w)/2, (img_size[1]-text_h)/2), text, fill=(40, 40, 40), font=font)
                 img.save(path)
     except Exception as e:
@@ -285,6 +293,146 @@ def generate_style_guide_doc(brand_name: str, logo_concepts: str,
     return json.dumps(style_guide, indent=2)
 
 
+@tool
+def generate_artistic_logo(brand_name: str, prompt: str = "", style: str = "stylized",
+                           variants: int = 3, resolution: str = "1024x1024", model: str = None) -> str:
+    """
+    Generate artistic logo variants using local Ollama SDXL (or fallback placeholders).
+
+    Args:
+        brand_name: Brand name to inspire logo
+        prompt: Additional prompt details
+        style: Style descriptor (watercolor, vector, neon, etc.)
+        variants: Number of variants to generate
+        resolution: Image resolution (e.g., '1024x1024')
+        model: Ollama image model name (optional, defaults to env OLLAMA_IMAGE_MODEL or 'sdxl')
+
+    Returns:
+        JSON string with generated variant metadata
+    """
+    print(f"--- Tool: Generating {variants} artistic logo variants for '{brand_name}' (style={style}) ---")
+
+    model = model or os.getenv("OLLAMA_IMAGE_MODEL", "sdxl")
+    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    full_prompt = f"Logo for {brand_name}. Style: {style}. {prompt}".strip()
+
+    try:
+        width, height = map(int, resolution.split("x"))
+    except Exception:
+        width, height = 1024, 1024
+
+    variants_meta = []
+
+    # If using a qwen text model (local Ollama), use the CLI to generate SVG variants
+    try:
+        if str(model).lower().startswith("qwen"):
+            for i in range(variants):
+                variant_prompt = f"{full_prompt}. Create a unique SVG logo design for {brand_name}. Variant {i+1}. Respond ONLY with the complete <svg>...</svg> content with inline styles and no other text."
+                try:
+                    proc = subprocess.run([
+                        "ollama", "run", model, variant_prompt
+                    ], capture_output=True, text=True, timeout=int(os.getenv("OLLAMA_CLI_TIMEOUT", "60")))
+                    svg_out = proc.stdout.strip()
+                    if proc.returncode != 0:
+                        err = proc.stderr.strip()
+                        print(f"Warning: Ollama CLI returned non-zero exit code for variant {i+1}: {proc.returncode}. Stderr: {err}")
+                    if svg_out and svg_out.startswith("<svg"):
+                        path = f"assets/logos/{brand_name.replace(' ', '').lower()}_{style}_variant_{i+1}.svg"
+                        os.makedirs(os.path.dirname(path), exist_ok=True)
+                        with open(path, "w") as f:
+                            f.write(svg_out)
+
+                        variants_meta.append({
+                            "file_path": path,
+                            "model": model,
+                            "prompt": variant_prompt,
+                            "style": style,
+                            "resolution": f"{width}x{height}"
+                        })
+                        continue
+                    else:
+                        stderr = proc.stderr.strip() if proc.stderr else ""
+                        print(f"Warning: Ollama CLI produced no SVG output for variant {i+1}. Stderr: {stderr}")
+                except Exception as e:
+                    print(f"Warning: Ollama CLI SVG generation failed for variant {i+1}: {e}")
+            # If we got any variants above, return early
+            if variants_meta:
+                return json.dumps({"brand": brand_name, "variants": variants_meta}, indent=2)
+        # Otherwise, fallback to image API approach
+        payload = {
+            "prompt": full_prompt,
+            "n": variants,
+            "width": width,
+            "height": height
+        }
+        resp = requests.post(f"{ollama_url}/images/generate?model={model}", json=payload, timeout=30)
+        if resp.ok:
+            data = resp.json()
+            images = data.get("images") or data.get("data") or []
+            for i, img_entry in enumerate(images):
+                img_b64 = None
+                if isinstance(img_entry, str):
+                    img_b64 = img_entry
+                elif isinstance(img_entry, dict) and img_entry.get("b64"):
+                    img_b64 = img_entry.get("b64")
+
+                if not img_b64:
+                    continue
+
+                img_data = base64.b64decode(img_b64)
+                path = f"assets/logos/{brand_name.replace(' ', '').lower()}_{style}_variant_{i+1}.png"
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(img_data)
+
+                variants_meta.append({
+                    "file_path": path,
+                    "model": model,
+                    "prompt": full_prompt,
+                    "style": style,
+                    "resolution": f"{width}x{height}"
+                })
+        else:
+            raise Exception(f"Ollama returned {resp.status_code}: {resp.text}")
+
+    except Exception as e:
+        print(f"Warning: Ollama image generation failed: {e}. Using placeholder images.")
+        # Fallback: create placeholder images with simple text
+        for i in range(variants):
+            path = f"assets/logos/{brand_name.replace(' ', '').lower()}_{style}_variant_{i+1}.png"
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            img = Image.new("RGBA", (width, height), (255, 255, 255))
+            draw = ImageDraw.Draw(img)
+            text = f"{brand_name}\n{style}\nVariant {i+1}"
+            try:
+                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
+            except Exception:
+                font = ImageFont.load_default()
+            try:
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_w = bbox[2] - bbox[0]
+                text_h = bbox[3] - bbox[1]
+            except Exception:
+                text_w, text_h = draw.textsize(text, font=font)
+            draw.text(((width - text_w) / 2, (height - text_h) / 2), text, fill=(40, 40, 40), font=font)
+            img.save(path)
+
+            variants_meta.append({
+                "file_path": path,
+                "model": model,
+                "prompt": full_prompt,
+                "style": style,
+                "resolution": f"{width}x{height}"
+            })
+
+    result = {
+        "brand": brand_name,
+        "variants": variants_meta
+    }
+
+    return json.dumps(result, indent=2)
+
+
 # ===================================================================
 # Marketing Tools
 # ===================================================================
@@ -387,7 +535,12 @@ def generate_social_media_post(brand_name: str, platform: str,
                 font = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
             except Exception:
                 font = ImageFont.load_default()
-            text_w, text_h = draw.textsize(text, font=font)
+            try:
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_w = bbox[2] - bbox[0]
+                text_h = bbox[3] - bbox[1]
+            except Exception:
+                text_w, text_h = draw.textsize(text, font=font)
             draw.text(((img_size[0]-text_w)/2, (img_size[1]-text_h)/2), text, fill=(40,40,40), font=font)
             img.save(img_path)
 
@@ -592,6 +745,7 @@ class BrandAssetTools:
     generate_logo_concepts = generate_logo_concepts
     analyze_color_psychology = analyze_color_psychology
     generate_style_guide_doc = generate_style_guide_doc
+    generate_artistic_logo = generate_artistic_logo
 
 
 class MarketingTools:

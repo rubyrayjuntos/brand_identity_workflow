@@ -117,6 +117,15 @@ class WorkflowProgress(BaseModel):
 # Workflow Result Models
 # ===================================================================
 
+class ImageVariant(BaseModel):
+    """A generated image variant."""
+    file_path: str = Field(..., description="Path to the generated image")
+    model: str = Field(..., description="Model used to generate the image")
+    prompt: str = Field(..., description="Prompt used for generation")
+    style: str = Field(..., description="Style descriptor")
+    resolution: str = Field(..., description="Image resolution")
+
+
 class LogoConceptResult(BaseModel):
     """A logo concept in the results."""
     id: str = Field(..., description="Concept identifier")
@@ -125,6 +134,7 @@ class LogoConceptResult(BaseModel):
     rationale: str = Field(..., description="Design rationale")
     style: str = Field(..., description="Style category")
     file_path: Optional[str] = Field("", description="Path to the rendered logo image")
+    variants: List[ImageVariant] = Field(default_factory=list, description="Generated artistic variants")
     use_cases: List[str] = Field(default_factory=list, description="Recommended use cases")
 
 
@@ -199,3 +209,37 @@ class WorkflowResult(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     raw_results: Dict[str, Any] = Field(default_factory=dict, description="Raw workflow results")
+
+
+class ArtisticLogoRequest(BaseModel):
+    brand_name: str = Field(..., description="Brand name for the logo")
+    prompt: str = Field("", description="Optional prompt details")
+    style: str = Field("stylized", description="Style descriptor")
+    variants: int = Field(3, description="Number of variants to generate")
+    resolution: str = Field("1024x1024", description="Image resolution")
+    model: Optional[str] = Field(None, description="Model to use (optional, defaults to env OLLAMA_IMAGE_MODEL)")
+
+
+class ArtisticLogoResponse(BaseModel):
+    brand: str = Field(..., description="Brand name")
+    variants: List[ImageVariant] = Field(default_factory=list, description="Generated image variants")
+
+
+class GenerationStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class GenerationJobResponse(BaseModel):
+    task_id: str = Field(..., description="Task identifier for the background generation job")
+    status: GenerationStatus = Field(..., description="Current task status")
+    location: Optional[str] = Field(None, description="URL to poll for task status and result")
+
+
+class GenerationJobResult(BaseModel):
+    task_id: str = Field(..., description="Task identifier")
+    status: GenerationStatus = Field(..., description="Current task status")
+    result: Optional[ArtisticLogoResponse] = Field(None, description="Result when completed")
+    error: Optional[str] = Field(None, description="Error message if failed")

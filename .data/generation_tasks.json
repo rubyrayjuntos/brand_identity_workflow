@@ -1,0 +1,1 @@
+{"2e3406ea-6837-4c8b-bdc2-40b325bf7cc7": {"task_id": "2e3406ea-6837-4c8b-bdc2-40b325bf7cc7", "status": "failed", "req": {"brand_name": "CancelableBrand", "prompt": "Cancel test", "style": "vector", "variants": 1, "resolution": "256x256", "model": "qwen2.5:latest"}, "error": "cancelled by user"}}

@@ -130,6 +130,18 @@ class BrandIdentityWorkflow:
                 'style_guide': self._extract_style_guide(brand_identity_result),
                 'raw_result': brand_identity_result
             }
+
+            # Generate artistic logo variants using local Ollama SDXL (best-effort)
+            try:
+                from tools import generate_artistic_logo
+                art_json = generate_artistic_logo.func(brand_brief.get('brand_name', ''), prompt='', style=brand_brief.get('style_preference', 'modern'), variants=3, resolution='1024x1024', model=os.getenv('OLLAMA_IMAGE_MODEL', 'sdxl'))
+                try:
+                    art = json.loads(art_json) if isinstance(art_json, str) else art_json
+                except Exception:
+                    art = {'brand': brand_brief.get('brand_name', ''), 'variants': []}
+                self.workflow_results['brand_identity']['artistic_logos'] = art
+            except Exception as e:
+                print(f"Warning: artistic logo generation step failed: {e}")
             
             print("\n" + "=" * 80)
             print("✅ BRAND IDENTITY WORKFLOW COMPLETED SUCCESSFULLY")

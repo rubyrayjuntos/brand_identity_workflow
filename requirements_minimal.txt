@@ -7,4 +7,6 @@ streamlit
 
 # Supporting Libraries
 langchain-openai
+requests
+Pillow
 Pillow
