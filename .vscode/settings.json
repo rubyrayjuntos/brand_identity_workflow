@@ -1,0 +1,13 @@
+{
+    "cSpell.words": [
+        "crewai",
+        "ollama",
+        "qwen",
+        "touchpoints"
+    ],
+    "python.testing.pytestArgs": [
+        "backend"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}

@@ -1,3 +1,12 @@
 /venv
 /venv312
 /__pycache__
+
+# Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Environment
+.env
+.env.local

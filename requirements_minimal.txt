@@ -6,4 +6,5 @@ crewai-tools>=0.3.0
 streamlit
 
 # Supporting Libraries
-langchain-openai 
+langchain-openai
+Pillow

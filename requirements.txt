@@ -7,3 +7,12 @@ streamlit
 
 # Supporting Libraries
 langchain-openai
+
+# Free/Local LLM Support
+langchain-ollama
+litellm
+
+# FastAPI Backend
+fastapi
+uvicorn[standard]
+websockets

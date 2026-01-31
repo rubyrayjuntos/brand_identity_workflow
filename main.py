@@ -1,6 +1,13 @@
 """
 Main orchestrator for the Brand Identity Management Agent Workflow.
 Coordinates the execution of brand identity creation and marketing campaigns using hierarchical process.
+
+Supports free local models via Ollama. Set CREWAI_MODEL env var to choose model:
+  - qwen2.5 (default) - Fast general purpose
+  - qwen2.5-vl - Best for visual tasks
+  - deepseek-v3 - Great for agents (MIT license)
+  - llama3.2 - Meta's latest
+  - gpt-4o / gpt-4o-mini - OpenAI (paid)
 """
 
 import json
@@ -13,6 +20,7 @@ from crewai import Crew, Process
 from agents import get_brand_identity_crew_agents, get_marketing_crew_agents, get_all_agents
 from tasks import get_coordinator_tasks
 from tools import DataManagementTools
+from llm_config import get_llm, list_available_models, DEFAULT_MODEL
 
 # Load environment variables
 load_dotenv()
@@ -21,13 +29,27 @@ class BrandIdentityWorkflow:
     """
     Main orchestrator class for the brand identity management workflow.
     Now uses hierarchical process with manager agents.
+    Supports free local models via Ollama.
     """
-    
-    def __init__(self):
-        """Initialize the workflow orchestrator."""
-        self.brand_identity_agents = get_brand_identity_crew_agents()
-        self.marketing_agents = get_marketing_crew_agents()
-        self.all_agents = get_all_agents()
+
+    def __init__(self, model_name: str = None):
+        """
+        Initialize the workflow orchestrator.
+
+        Args:
+            model_name: Name of the LLM model to use (see llm_config.py for options).
+                       Defaults to CREWAI_MODEL env var or 'qwen2.5'.
+        """
+        # Get the configured LLM
+        self.llm = get_llm(model_name)
+        self.model_name = model_name or DEFAULT_MODEL
+
+        # Initialize agents with the configured LLM
+        self.brand_identity_agents = get_brand_identity_crew_agents(self.llm)
+        self.marketing_agents = get_marketing_crew_agents(self.llm)
+        self.all_agents = get_all_agents(self.llm)
+
+        print(f"Using LLM: {self.model_name}")
         
         # Initialize results storage
         self.workflow_results = {
@@ -92,7 +114,8 @@ class BrandIdentityWorkflow:
             agents=self.brand_identity_agents,  # Manager is already first in the list
             tasks=[coordinator_tasks['brand_identity_coordination']],  # Only the coordinator task
             process=Process.hierarchical,  # Key change: hierarchical process
-            verbose=2,
+            manager_llm=self.llm,  # Required for hierarchical process
+            verbose=True,
             memory=True
         )
         
@@ -148,7 +171,8 @@ class BrandIdentityWorkflow:
             agents=self.marketing_agents,  # Manager is already first in the list
             tasks=[coordinator_tasks['marketing_coordination']],  # Only the coordinator task
             process=Process.hierarchical,  # Key change: hierarchical process
-            verbose=2,
+            manager_llm=self.llm,  # Required for hierarchical process
+            verbose=True,
             memory=True
         )
         
@@ -352,19 +376,39 @@ All deliverables have been generated using hierarchical process and are ready fo
 
 def main():
     """Main entry point for the brand identity workflow."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Brand Identity Management Workflow")
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=None,
+        help="LLM model to use (e.g., qwen2.5, deepseek-v3, gpt-4o). Default: qwen2.5"
+    )
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="List available LLM models and exit"
+    )
+    args = parser.parse_args()
+
+    if args.list_models:
+        list_available_models()
+        return
+
     try:
-        # Initialize the workflow
-        workflow = BrandIdentityWorkflow()
-        
+        # Initialize the workflow with specified model
+        workflow = BrandIdentityWorkflow(model_name=args.model)
+
         # Run the complete workflow
         results = workflow.run_complete_workflow()
-        
+
         # Save results
         workflow.save_results()
-        
+
         print("\n🎯 Workflow completed successfully!")
         print("Check the 'results' directory for detailed output files.")
-        
+
     except Exception as e:
         print(f"\n❌ Workflow failed: {str(e)}")
         print("Please check the error details and try again.")

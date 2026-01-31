@@ -31,8 +31,10 @@ For more complex workflows with multiple AI agents, see the full CrewAI-based sy
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.8+ (tested with Python 3.13)
 - pip package manager
+- Node.js 18+ (for frontend development)
+- [Ollama](https://ollama.ai/) (optional, for free local LLM models)
 
 ### Installation
 
@@ -72,6 +74,37 @@ The system comes with a sample brand brief for "InnovateTech" - an AI software d
 python main.py
 ```
 
+### Web Interface (React + FastAPI)
+
+For the full-featured web interface with real-time progress updates:
+
+1. **Start the Backend API**
+   ```bash
+   # Using the script
+   ./run_backend.sh
+
+   # Or manually
+   uvicorn backend.api:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+2. **Start the Frontend** (in a separate terminal)
+   ```bash
+   # Using the script
+   ./run_frontend.sh
+
+   # Or manually
+   cd frontend
+   npm install  # First time only
+   npm run dev
+   ```
+
+3. **Open** http://localhost:5173 in your browser
+
+The web interface provides:
+- Brand brief input form
+- Real-time workflow progress via WebSocket
+- Visual results display with generated brand assets
+
 ### Custom Brand Brief
 
 To use your own brand, modify the `create_sample_brand_brief()` method in `main.py` or pass a custom brand brief:
@@ -107,25 +140,70 @@ results = workflow.run_complete_workflow(custom_brief)
 - **Deployment**: Just open the file
 
 ### Advanced Multi-Agent System
-- **Framework**: CrewAI for multi-agent orchestration
-- **Language**: Python 3.8+
-- **AI Models**: OpenAI GPT models (configurable)
-- **Storage**: JSON-based results storage
-- **APIs**: Extensible tool system for external integrations
+
+#### Backend (Python)
+- **Framework**: CrewAI (>=0.40.0) for multi-agent orchestration
+- **API Server**: FastAPI with WebSocket support for real-time progress updates
+- **Language**: Python 3.8+ (tested with Python 3.13)
+- **LLM Support**:
+  - **Free/Local**: Ollama models (qwen2.5, qwen2.5-vl, llama3.2, deepseek-v3, mistral)
+  - **Paid**: OpenAI GPT models (gpt-4o, gpt-4o-mini)
+- **Key Libraries**: langchain-openai, langchain-ollama, litellm, uvicorn
+
+#### Frontend (React/TypeScript)
+- **Build Tool**: Vite 7.x
+- **Framework**: React 19
+- **Styling**: Tailwind CSS 3.4
+- **Type Checking**: TypeScript 5.9
+- **Features**: Real-time workflow progress via WebSocket
 
 ### File Structure
 
 ```
 brand_identity_workflow/
-├── simple_brand_gui.html    # 🎯 Quick start solution
-├── main.py                  # Advanced orchestrator
-├── agents.py                # Agent definitions
-├── tasks.py                 # Task definitions
-├── tools.py                 # Tool implementations
-├── requirements.txt         # Dependencies
-├── README.md               # Documentation
-└── results/                # Generated outputs
-    └── workflow_results_*.json
+├── simple_brand_gui.html       # 🎯 Quick start solution (standalone)
+│
+├── # Core Python Modules
+├── main.py                     # BrandIdentityWorkflow orchestrator class
+├── agents.py                   # Agent factory functions (logo_designer, color_specialist, etc.)
+├── tasks.py                    # Task definitions for brand identity & marketing workflows
+├── tools.py                    # Tool implementations (BrandAssetTools, MarketingTools, etc.)
+├── models.py                   # Pydantic data models (BrandBrief, WorkflowResult, etc.)
+├── llm_config.py               # LLM configuration with model presets
+│
+├── # Backend API
+├── backend/
+│   ├── __init__.py
+│   ├── api.py                  # FastAPI routes with WebSocket endpoint
+│   ├── schemas.py              # API request/response schemas
+│   └── job_manager.py          # Background job management
+│
+├── # Frontend (React/TypeScript)
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── App.tsx             # Main application component
+│       ├── main.tsx            # Entry point
+│       ├── components/
+│       │   ├── BrandBriefForm.tsx
+│       │   ├── WorkflowProgress.tsx
+│       │   ├── ResultsDisplay.tsx
+│       │   └── GlassCard.tsx
+│       ├── hooks/
+│       │   └── useWorkflowSocket.ts  # WebSocket hook for real-time updates
+│       └── types/
+│           └── index.ts        # TypeScript type definitions
+│
+├── # Configuration & Scripts
+├── requirements.txt            # Python dependencies
+├── run_backend.sh              # Backend startup script
+├── run_frontend.sh             # Frontend startup script
+│
+├── # Documentation
+├── portfolio-docs/             # Architecture and specification docs
+└── README.md
 ```
 
 ## 🔧 Configuration
@@ -135,13 +213,33 @@ No configuration needed! Just get an OpenAI API key and start using.
 
 ### Advanced System
 
+#### LLM Configuration
+
+The system supports both free local models (via Ollama) and paid OpenAI models:
+
+```bash
+# Use free local Ollama models (default)
+export CREWAI_MODEL=qwen2.5
+
+# Available free models: qwen2.5, qwen2.5-vl, llama3.2, deepseek-v3, mistral
+
+# Or use paid OpenAI models
+export CREWAI_MODEL=gpt-4o-mini
+export OPENAI_API_KEY=your_openai_api_key_here
+```
+
+To see all available model presets:
+```bash
+python llm_config.py
+```
+
 #### Environment Variables
 
-Create a `.env` file with your API keys:
+Create a `.env` file with your API keys (only needed for OpenAI):
 
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
-# Add other API keys as needed
+CREWAI_MODEL=qwen2.5  # or gpt-4o-mini for OpenAI
 ```
 
 #### Customizing Tools

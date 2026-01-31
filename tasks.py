@@ -6,7 +6,8 @@ Defines specific tasks for agents to execute in the brand identity and marketing
 from crewai import Task
 from models import (
     BrandIdentityOutput, LogoConcept, ColorPalette, StyleGuide,
-    SocialMediaStrategy, EmailMarketingStrategy, VideoContentStrategy
+    SocialMediaStrategy, EmailMarketingStrategy, VideoContentStrategy,
+    MarketingOutput
 )
 
 # ===================================================================
@@ -63,7 +64,7 @@ marketing_coordination_task = Task(
         "SocialMediaStrategy, EmailMarketingStrategy, and VideoContentStrategy objects. "
         "Each strategy must be a valid JSON object that matches its respective Pydantic schema."
     ),
-    output_pydantic=[SocialMediaStrategy, EmailMarketingStrategy, VideoContentStrategy]
+    output_pydantic=MarketingOutput
 )
 
 # ===================================================================
